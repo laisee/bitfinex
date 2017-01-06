@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from decouple import config
 import requests
 import json
 import base64
@@ -21,8 +22,6 @@ PATH_ORDERBOOK = "book/%s"
 # HTTP request timeout in seconds
 TIMEOUT = 5.0
 
-
-
 class TradeClient:
     """
     Authenticated client for trading through Bitfinex API
@@ -30,8 +29,8 @@ class TradeClient:
 
     def __init__(self, key, secret):
         self.URL = "{0:s}://{1:s}/{2:s}".format(PROTOCOL, HOST, VERSION)
-        self.KEY = key
-        self.SECRET = secret
+        self.KEY = config("API_KEY")
+        self.SECRET = config("API_SECRET")
         self.lock = threading.Lock()
         pass
 
