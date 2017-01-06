@@ -5,6 +5,7 @@ import base64
 import hmac
 import hashlib
 import time
+import threading
 
 PROTOCOL = "https"
 HOST = "api.bitfinex.com"
@@ -31,22 +32,16 @@ class TradeClient:
         self.URL = "{0:s}://{1:s}/{2:s}".format(PROTOCOL, HOST, VERSION)
         self.KEY = key
         self.SECRET = secret
+        self.lock = threading.Lock()
         pass
 
-    @property
-    def _nonce(self):
-        """
-        Returns a nonce
-        Used in authentication
-        """
-        return str(time.time() * 1000000)
+    def __getNonce(self): # generates a nonce, used for authentication.
+        with self.lock:
+            return str(long(time.time() * 1000000))
 
     def _sign_payload(self, payload):
-        j = json.dumps(payload)
-        data = base64.standard_b64encode(j.encode('utf8'))
-
-        h = hmac.new(self.SECRET.encode('utf8'), data, hashlib.sha384)
-        signature = h.hexdigest()
+        data = base64.standard_b64encode(json.dumps(payload).encode('utf8'))
+        signature = hmac.new(self.SECRET.encode('utf8'), data, hashlib.sha384).hexdigest()
         return {
             "X-BFX-APIKEY": self.KEY,
             "X-BFX-SIGNATURE": signature,
@@ -67,7 +62,7 @@ class TradeClient:
         payload = {
 
             "request": "/v1/order/new",
-            "nonce": self._nonce,
+            "nonce": self.__getNonce(),
             "symbol": symbol,
             "amount": amount,
             "price": price,
@@ -84,7 +79,7 @@ class TradeClient:
         try:
             json_resp['order_id']
         except:
-            return json_resp['message']
+            json_resp['message'] = 'An error was encountered'
 
         return json_resp
 
@@ -96,7 +91,7 @@ class TradeClient:
         """
         payload = {
             "request": "/v1/order/cancel",
-            "nonce": self._nonce,
+            "nonce": self.__getNonce(),
             "order_id": order_id
         }
 
@@ -107,19 +102,18 @@ class TradeClient:
         try:
             json_resp['avg_excution_price']
         except:
-            return json_resp['message']
+            json_resp['message'] = 'An error was encountered'
 
         return json_resp
 
     def delete_all_orders(self):
         """
         Cancel all orders.
-
         :return:
         """
         payload = {
             "request": "/v1/order/cancel/all",
-            "nonce": self._nonce,
+            "nonce": self.__getNonce(),
         }
 
         signed_payload = self._sign_payload(payload)
@@ -135,7 +129,7 @@ class TradeClient:
         """
         payload = {
             "request": "/v1/order/status",
-            "nonce": self._nonce,
+            "nonce": self.__getNonce(),
             "order_id": order_id
         }
 
@@ -157,7 +151,7 @@ class TradeClient:
 
         payload = {
             "request": "/v1/orders",
-            "nonce": self._nonce
+            "nonce": self.__getNonce()
         }
 
         signed_payload = self._sign_payload(payload)
@@ -173,7 +167,7 @@ class TradeClient:
 
         payload = {
             "request": "/v1/positions",
-            "nonce": self._nonce
+            "nonce": self.__getNonce()
         }
 
         signed_payload = self._sign_payload(payload)
@@ -189,7 +183,7 @@ class TradeClient:
         """
         payload = {
             "request": "/v1/position/claim",
-            "nonce": self._nonce,
+            "nonce": self.__getNonce(),
             "position_id": position_id
         }
 
@@ -208,7 +202,7 @@ class TradeClient:
         """
         payload = {
             "request": "/v1/mytrades",
-            "nonce": self._nonce,
+            "nonce": self.__getNonce(),
             "symbol": symbol,
             "timestamp": timestamp
         }
@@ -221,7 +215,6 @@ class TradeClient:
 
     def place_offer(self, currency, amount, rate, period, direction):
         """
-
         :param currency:
         :param amount:
         :param rate:
@@ -231,7 +224,7 @@ class TradeClient:
         """
         payload = {
             "request": "/v1/offer/new",
-            "nonce": self._nonce,
+            "nonce": self.__getNonce(),
             "currency": currency,
             "amount": amount,
             "rate": rate,
@@ -247,13 +240,12 @@ class TradeClient:
 
     def cancel_offer(self, offer_id):
         """
-
         :param offer_id:
         :return:
         """
         payload = {
             "request": "/v1/offer/cancel",
-            "nonce": self._nonce,
+            "nonce": self.__getNonce(),
             "offer_id": offer_id
         }
 
@@ -265,13 +257,12 @@ class TradeClient:
 
     def status_offer(self, offer_id):
         """
-
         :param offer_id:
         :return:
         """
         payload = {
             "request": "/v1/offer/status",
-            "nonce": self._nonce,
+            "nonce": self.__getNonce(),
             "offer_id": offer_id
         }
 
@@ -288,7 +279,7 @@ class TradeClient:
         """
         payload = {
             "request": "/v1/offers",
-            "nonce": self._nonce
+            "nonce": self.__getNonce()
         }
 
         signed_payload = self._sign_payload(payload)
@@ -300,12 +291,11 @@ class TradeClient:
     def balances(self):
         """
         Fetch balances
-
         :return:
         """
         payload = {
             "request": "/v1/balances",
-            "nonce": self._nonce
+            "nonce": self.__getNonce()
         }
 
         signed_payload = self._sign_payload(payload)
@@ -321,12 +311,11 @@ class TradeClient:
         :param since: Optional. Return only the history after this timestamp.
         :param until: Optional. Return only the history before this timestamp.
         :param limit: Optional. Limit the number of entries to return. Default is 500.
-        :param wallet: Optional. Return only entries that took place in this wallet. Accepted inputs are: “trading”,
-        “exchange”, “deposit”.
+        :param wallet: Optional. Return only entries that took place in this wallet.
         """
         payload = {
             "request": "/v1/history",
-            "nonce": self._nonce,
+            "nonce": self.__getNonce(),
             "currency": currency,
             "since": since,
             "until": until,
@@ -344,7 +333,6 @@ class TradeClient:
 class Client:
     """
     Client for the bitfinex.com API.
-
     See https://www.bitfinex.com/pages/api for API documentation.
     """
 
@@ -373,7 +361,6 @@ class Client:
     def symbols(self):
         """
         GET /symbols
-
         curl https://api.bitfinex.com/v1/symbols
         ['btcusd','ltcusd','ltcbtc']
         """
@@ -383,7 +370,6 @@ class Client:
     def ticker(self, symbol):
         """
         GET /ticker/:symbol
-
         curl https://api.bitfinex.com/v1/ticker/btcusd
         {
             'ask': '562.9999',
@@ -401,7 +387,6 @@ class Client:
     def today(self, symbol):
         """
         GET /today/:symbol
-
         curl "https://api.bitfinex.com/v1/today/btcusd"
         {"low":"550.09","high":"572.2398","volume":"7305.33119836"}
         """
@@ -439,11 +424,8 @@ class Client:
     def lendbook(self, currency, parameters=None):
         """
         curl "https://api.bitfinex.com/v1/lendbook/btc"
-
         {"bids":[{"rate":"5.475","amount":"15.03894663","period":30,"timestamp":"1395112149.0","frr":"No"},{"rate":"2.409","amount":"14.5121868","period":7,"timestamp":"1395497599.0","frr":"No"}],"asks":[{"rate":"6.351","amount":"15.5180735","period":5,"timestamp":"1395549996.0","frr":"No"},{"rate":"6.3588","amount":"626.94808249","period":30,"timestamp":"1395400654.0","frr":"Yes"}]}
-
         Optional parameters
-
         limit_bids (int): Optional. Limit the number of bids (loan demands) returned. May be 0 in which case the array of bids is empty. Default is 50.
         limit_asks (int): Optional. Limit the number of asks (loan offers) returned. May be 0 in which case the array of asks is empty. Default is 50.
         """
@@ -469,20 +451,14 @@ class Client:
     def order_book(self, symbol, parameters=None):
         """
         curl "https://api.bitfinex.com/v1/book/btcusd"
-
         {"bids":[{"price":"561.1101","amount":"0.985","timestamp":"1395557729.0"}],"asks":[{"price":"562.9999","amount":"0.985","timestamp":"1395557711.0"}]}
-
         The 'bids' and 'asks' arrays will have multiple bid and ask dicts.
-
         Optional parameters
-
         limit_bids (int): Optional. Limit the number of bids returned. May be 0 in which case the array of bids is empty. Default is 50.
         limit_asks (int): Optional. Limit the number of asks returned. May be 0 in which case the array of asks is empty. Default is 50.
-
         eg.
         curl "https://api.bitfinex.com/v1/book/btcusd?limit_bids=1&limit_asks=0"
         {"bids":[{"price":"561.1101","amount":"0.985","timestamp":"1395557729.0"}],"asks":[]}
-
         """
         data = self._get(self.url_for(PATH_ORDERBOOK, path_arg=symbol, parameters=parameters))
 

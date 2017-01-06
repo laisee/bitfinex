@@ -2,13 +2,12 @@ import unittest
 import mock
 import requests
 import httpretty
-
-from decouple import config
+import settings
 
 from bitfinex.client import Client, TradeClient
 
-API_KEY = config('API_KEY')
-API_SECRET = config('API_SECRET')
+API_KEY = settings.API_KEY
+API_SECRET = settings.API_SECRET
 
 class BitfinexTest(unittest.TestCase):
 
