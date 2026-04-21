@@ -4,7 +4,7 @@ nose
 mock
 coverage
 nose-cov
-lxml==4.9.1
+lxml==6.1.0
 sniffer
 ##
 Quandl
